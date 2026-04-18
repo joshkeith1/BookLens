@@ -1,0 +1,166 @@
+\documentclass[sigconf]{acmart}
+
+\usepackage{xspace}
+\usepackage{graphics}
+\usepackage[T1]{fontenc}
+\usepackage{times}
+\usepackage{color}
+\usepackage{booktabs}
+\usepackage{textcomp}
+\usepackage{xspace}
+\usepackage{microtype}
+\usepackage{ccicons}
+\usepackage{todonotes}
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{subcaption}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{relsize}
+\usepackage{caption}
+\usepackage{amsthm}
+\newtheorem{example}{Example}
+\usepackage{soul}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{relsize}
+\usepackage[normalem]{ulem}
+\hypersetup{
+  colorlinks,
+  urlcolor=blue}
+\renewcommand*{\UrlFont}{\ttfamily\smaller\relax}
+
+\newcommand{\stepCounter}[1]{{\Large\textcircled{{\small#1}}}}
+
+\AtBeginDocument{%
+  \providecommand\BibTeX{{%
+    \normalfont B\kern-0.5em{\scshape i\kern-0.25em b}\kern-0.8em\TeX}}}
+\setcopyright{acmcopyright}
+\copyrightyear{2025}
+\acmYear{2025}
+\acmDOI{XXXXXXX.XXXXXXX}
+\acmConference[CS 3960]{Human-Centered Database Management}{Spring 2025}{University of Utah}
+\acmPrice{}
+\acmISBN{}
+
+\setcopyright{none}
+\renewcommand\footnotetextcopyrightpermission[1]{}
+\settopmatter{printacmref=false}
+
+\begin{document}
+\pagestyle{plain}
+\title{BookLens: A Human-Centered Interactive Book Dataset Exploration Assistant}
+
+\author{Joshua Keith}
+\affiliation{%
+  \institution{University of Utah}
+  \city{Salt Lake City}
+  \state{Utah}
+  \country{USA}}
+\email{u1423033@utah.edu}
+
+\renewcommand{\shortauthors}{Keith}
+
+\begin{abstract}
+    Modern data-driven applications present a growing challenge: large, complex datasets are increasingly available, yet the tools to explore them remain gatekept behind technical expertise. Non-technical users---students, casual enthusiasts, domain hobbyists---are routinely left without meaningful ways to interact with data directly relevant to their interests.
+
+    Existing database interfaces rely on SQL fluency or command-line tooling, effectively excluding non-expert users. Visualization platforms exist but often require manual configuration and offer little guidance. We introduce \textbf{BookLens}, a human-centered interactive assistant for exploring book datasets. BookLens allows any user---regardless of technical background---to load a dataset, understand its structure, uncover trends through adaptive visualizations, and obtain AI-generated narrative insights, all through a clean, guided web interface.
+
+    BookLens is built on Streamlit and operates over multiple curated book datasets (personal libraries, Goodreads, Amazon bestsellers, and Book-Crossings) as well as arbitrary user-uploaded CSVs. Its backend automatically normalizes heterogeneous schemas, infers relevant column types, and selects appropriate visualizations. An integrated AI layer (Claude via OpenRouter) generates plain-language summaries of dataset characteristics on demand. In this demo, we walk through a realistic scenario of a reader exploring her personal reading history and comparing it against community datasets---requiring zero SQL, zero configuration, and zero technical knowledge.
+\end{abstract}
+
+
+\maketitle
+
+\noindent \textbf{Source Code: \emph{\url{https://github.com/joshkeith1/BookLens}}}
+
+
+\noindent \textbf{Demo Video: \emph{\url{https://youtu.be/placeholder}}}
+
+
+\section{Introduction}
+
+Data is abundant---but insight is not. Every year, readers track hundreds of books, publishers release thousands of titles, and platforms like Goodreads accumulate millions of community ratings. Yet the average reader has no practical way to explore these datasets. They might wonder: \textit{What genres have I read most over the past decade? Do longer books tend to receive lower ratings? Which authors dominate bestseller lists year over year?} These are natural, valuable questions---but answering them today requires either data science skills or access to expensive commercial tools. For the vast majority of users, these datasets remain effectively closed.
+
+Existing approaches fall short in two key ways. General-purpose tools like Pandas or SQL require programming knowledge that most users simply do not have. Consumer analytics platforms like Tableau demand significant manual configuration and are designed for business contexts. Domain-specific book apps (Goodreads, StoryGraph) offer limited analytics with no support for custom or cross-dataset exploration. None of these options gives a non-expert a clear, interactive view of their own reading data alongside curated community datasets.
+
+\begin{example}[Motivating Example]
+
+    Maya is an avid reader who has tracked every book she has read since 2016 in a spreadsheet. She suspects her reading habits have shifted---more fantasy, less literary fiction---and that she reads faster in certain years. She also wonders whether the books she rated highly tend to be longer. She downloads a Goodreads community dataset hoping to compare herself against broader trends.
+
+    Maya opens her spreadsheet in a standard CSV viewer: she sees rows and columns, but no patterns. She tries uploading it to an online analytics tool, but it does not recognize her column names and requires manual mapping. She attempts Pandas and gets a \texttt{KeyError} on the first line. An ideal system would accept Maya's CSV as-is, automatically detect her columns, and immediately surface the charts and summaries that answer her questions---without requiring her to write a single line of code.
+
+\end{example}
+
+This scenario exposes the concrete problem we address: \textit{how do we enable non-technical users to perform meaningful, interactive exploration of heterogeneous book datasets?} Our scope covers single-user personal libraries and publicly available community datasets in CSV format. We assume no query language knowledge and require only that the user can upload or select a file.
+
+The problem is challenging for several reasons. First, book datasets are heterogeneous---column names, data types, and schema conventions vary widely across sources (e.g., \texttt{user\_rating} vs.\ \texttt{average\_rating}, \texttt{name} vs.\ \texttt{title}). Second, appropriate visualizations depend on which columns are present---a system must adaptively decide what to show rather than requiring manual chart selection. Third, non-expert users need narrative guidance, not just charts: raw statistics are opaque without interpretation. Finally, deployment friction itself is a barrier, so the system must run in the browser with no installation required.
+
+\subsubsection*{BookLens.} We propose \textbf{BookLens}, a web-based human-centered book dataset exploration assistant. BookLens makes three core contributions: (1) a \textit{schema normalization pipeline} that maps diverse CSV column conventions to a unified internal schema, enabling consistent downstream analysis; (2) an \textit{adaptive visualization engine} that inspects available columns and renders only the charts that are meaningful for the loaded dataset; and (3) an \textit{AI insights layer} that invokes a large language model (Claude Sonnet via OpenRouter) to generate plain-language narrative summaries of dataset characteristics on demand.
+
+\subsubsection*{Related Work.} Several systems are relevant to BookLens. Voyager~\cite{voyager} and SeeDB~\cite{seedb} pioneered visualization recommendation, automatically suggesting charts based on data characteristics. DeepEye~\cite{deepeye} extended this with learned ranking models for visualization quality. Data Wrangler~\cite{wrangler} addressed schema normalization through an interactive transformation interface. Natural language query systems such as Seq2SQL~\cite{seq2sql} let users issue queries in plain English against structured databases. BookLens draws inspiration from all of these but differs in its domain specificity: rather than a general-purpose tool, it is tuned for book data, enabling opinionated defaults and a simpler user model. Unlike NLQ interfaces, it surfaces insights proactively without requiring the user to formulate questions. Unlike Wrangler, normalization is fully automatic.
+
+Participants should observe how BookLens removes every configuration step that would otherwise block a non-technical user: schema normalization happens invisibly, chart selection adapts to the data, and AI summaries require only a button click. We provide a system overview in Section~\ref{sec:overview} and a step-by-step demonstration walkthrough, based on Example~1, in Section~\ref{sec:demo}.
+
+
+
+
+
+\section{System Overview}
+\label{sec:overview}
+
+BookLens is built on Streamlit and structured around three backend subsystems---a \textit{Data Loader}, a \textit{Filter Engine}, and an \textit{Analytics Engine}---plus a frontend Tab Router that orchestrates five views.
+
+\subsubsection*{Data Loader.} The data loader ingests CSV files from disk or user upload. It applies a column normalization pass: names are lowercased and whitespace-stripped, and a static alias table maps common alternate names (\texttt{name}$\to$\texttt{title}, \texttt{author}$\to$\texttt{authors}, \texttt{user\_rating}$\to$\texttt{average\_rating}, etc.) to a canonical schema. Numeric and date columns are coerced with error tolerance; ratings are clipped to $[0, 5]$; years are bounded to $[1800, 2026]$. For the Book-Crossings dataset, an explicit ratings join step aggregates a sibling \texttt{Ratings.csv} and scales from 1--10 to 0--5. An optional genre-enrichment pass merges a curated \texttt{amazon\_genres.csv} to replace coarse Fiction/Non-Fiction labels with detailed genre tags.
+
+\subsubsection*{Filter Engine.} A persistent sidebar renders dataset-adaptive filter widgets: a free-text search over title and author, a genre or language multiselect (depending on available columns), a year range slider (publication year or year-read), and an optional rating range slider. Filters are applied in memory on the normalized DataFrame before passing to any tab renderer.
+
+\subsubsection*{Analytics Engine.} Five tab renderers consume the filtered DataFrame. The \textbf{Overview} tab shows aggregate stats and a missing-value summary. The \textbf{Profiling} tab gives per-column breakdowns: type, null rate, cardinality, and value distributions. The \textbf{Visualizations} tab is the core adaptive engine: it checks column availability against a catalog of ten chart types (genre/language distribution, rating histogram and scatter, publication trends, top authors, rating vs.\ pages, genre over time, price analysis, publisher ranking, series breakdown, and reading format over time) and renders only those for which required columns exist. The \textbf{Explore} tab provides a sortable full-table view with CSV export. The \textbf{AI Insights} tab computes a summary-statistics JSON (row count, unique authors, average rating, year range, top authors, missing value counts, rating distribution by bin) and streams it to Claude Sonnet via the OpenRouter API, displaying the plain-language response as live-rendered markdown.
+
+\subsubsection*{System Architecture.} Figure~\ref{fig:ui} illustrates both the system architecture and the demo interface. Four curated datasets are bundled with the application; users may also upload arbitrary CSVs. All processing is server-side; only an anonymized statistics summary is forwarded to the external AI layer.
+
+\subsubsection*{Preliminary Results.} BookLens was tested against four datasets ranging from 381 rows (personal library) to 271,000 rows (Book-Crossings). Load times for the largest dataset are under 3 seconds on a standard laptop; filtering operations are instantaneous. The AI insights feature produced coherent, accurate summaries across all four datasets, correctly identifying dataset-specific characteristics such as the bimodal rating distribution present in the Amazon bestsellers set.
+
+\section{Demonstration Scenario}
+\label{sec:demo}
+
+We demonstrate BookLens through Maya's exploration journey, introduced in Example~1. Maya has a personal reading CSV and wants to understand her habits and compare them to community data. The demo uses two datasets: her personal library (381 books, 2016--2025) and the Goodreads community dataset ($\sim$11,000 books). The interface is shown in Figure~\ref{fig:ui}.
+
+\smallskip \noindent Step \stepCounter{1} \textbf{Dataset Selection and Upload.} Maya opens BookLens in her browser. The sidebar lists four available built-in datasets and an upload widget. She uploads her personal CSV. BookLens normalizes the schema automatically---her \texttt{genre}, \texttt{series}, and \texttt{format} (physical/ebook/audiobook) columns are all detected and preserved. The sidebar immediately displays a count of 381 books and a brief dataset description.
+
+\smallskip \noindent Step \stepCounter{2} \textbf{Overview and Profiling.} Maya navigates to the \textit{Overview} tab and sees aggregate stats: 381 books, 12 columns, average rating of 4.1. She switches to the \textit{Profiling} tab, which shows that \texttt{genre} has 14 unique values and \texttt{format} has 3. She can immediately see that 78\% of her books are physical copies, with no configuration required.
+
+\smallskip \noindent Step \stepCounter{3} \textbf{Adaptive Visualizations.} Maya opens the \textit{Visualizations} tab. Because her dataset has \texttt{genre}, \texttt{year\_read}, \texttt{series}, and \texttt{format} columns, the engine automatically renders five relevant chart tabs: Genre Distribution, Publication Trends (labeled ``Books Read per Year''), Genre Over Time, Series Breakdown, and Reading Format Over Time. She sees that her fantasy reading spiked in 2020--2021 and that audiobook use has grown steadily since 2022. The Series Breakdown donut chart shows 60\% of her books belong to a series---confirming her intuition.
+
+\smallskip \noindent Step \stepCounter{4} \textbf{Cross-Dataset Comparison.} Maya switches the sidebar selector to the Goodreads dataset. The filter panel updates to expose a \textit{Language} multiselect and \textit{Average Rating} range slider relevant to that schema. She filters to English-language books rated above 4.0 and views the Ratings histogram. Comparing community ratings to her own average of 4.1, she concludes she rates books similarly to the broader Goodreads community.
+
+\smallskip \noindent Step \stepCounter{5} \textbf{AI Narrative Insights.} Returning to her personal dataset, Maya opens the \textit{AI Insights} tab and clicks \textit{Generate Insights}. BookLens computes a summary-statistics payload and streams a Claude-generated analysis. The AI notes that Maya's annual reading pace has doubled (from $\sim$20 books/year in 2016 to $\sim$40 in 2024), that fantasy accounts for 35\% of her reads despite being a minority genre in the broader catalog, and that her ratings are unusually consistent across genres---suggesting a personal rating style rather than genre preference. All of this is surfaced in plain English with no SQL or configuration required.
+
+\begin{figure*}[t]
+\centering
+\fbox{\parbox{0.95\textwidth}{
+\centering
+\vspace{0.8em}
+\small\textit{[Insert screenshot of BookLens interface here. Recommended: sidebar with dataset selector and filter widgets on the left; main panel open to the Visualizations tab showing Genre Over Time stacked bar chart and Reading Format Over Time. Add numbered callout annotations \stepCounter{1}--\stepCounter{5} corresponding to the steps above.]}
+\vspace{0.8em}
+}}
+\caption{The BookLens demo: \stepCounter{1} upload or select a dataset from the sidebar, \stepCounter{2} review structure in Overview/Profiling, \stepCounter{3} explore adaptive visualizations, \stepCounter{4} switch datasets and filter to compare, \stepCounter{5} generate AI narrative insights.}
+\label{fig:ui}
+\end{figure*}
+
+\section{Conclusions and Future Work}
+
+BookLens demonstrates that human-centered design principles---minimal required expertise, adaptive interfaces, and proactive insight generation---can substantially lower the barrier to data exploration for non-technical users. By combining automatic schema normalization, column-aware visualization selection, and an AI narrative layer, the system turns an otherwise technical task into an accessible, conversational experience. Our demonstration shows that a casual reader can go from a raw CSV to meaningful personal insights in under two minutes.
+
+Future directions include: (1) natural language query support, allowing users to ask questions like ``which genre did I read most in 2022?'' directly in a chat interface; (2) cross-dataset join recommendations that automatically suggest how a personal library could be enriched with community rating data; (3) anomaly highlighting in the profiling view to flag suspicious values without user prompting; and (4) a shareable reading-report export that packages AI insights and charts into a PDF.
+
+\smallskip
+
+\noindent
+\emph{Acknowledgement.} Claude (Anthropic) via the OpenRouter API is used for the AI Insights feature within BookLens. Claude Code (Anthropic) assisted with portions of the implementation, including component scaffolding and the data loader pipeline.
+
+\bibliographystyle{ACM-Reference-Format}
+\bibliography{references}
+
+\end{document}
+\endinput
