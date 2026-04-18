@@ -11,19 +11,21 @@ def render(df: pd.DataFrame):
     ])
 
     with tab1:
-        if "language_code" in df.columns:
-            lang_counts = df["language_code"].dropna().value_counts().head(15).reset_index()
-            lang_counts.columns = ["language", "count"]
+        cat_col = "genre" if "genre" in df.columns else "language_code"
+        cat_label = "Genre" if cat_col == "genre" else "Language"
+        if cat_col in df.columns:
+            cat_counts = df[cat_col].dropna().value_counts().head(15).reset_index()
+            cat_counts.columns = [cat_label, "count"]
             fig = px.bar(
-                lang_counts, x="language", y="count",
-                title="Top 15 Languages by Book Count",
-                labels={"language": "Language Code", "count": "Number of Books"},
+                cat_counts, x=cat_label, y="count",
+                title=f"Top 15 {cat_label}s by Book Count",
+                labels={cat_label: cat_label, "count": "Number of Books"},
                 color="count", color_continuous_scale="Blues",
             )
             fig.update_layout(coloraxis_showscale=False)
             st.plotly_chart(fig, use_container_width=True)
         else:
-            st.info("No language_code column found.")
+            st.info("No genre or language_code column found.")
 
     with tab2:
         if "average_rating" in df.columns:
@@ -51,14 +53,16 @@ def render(df: pd.DataFrame):
             st.info("No average_rating column found.")
 
     with tab3:
-        if "year" in df.columns:
+        year_col = "year_read" if "year_read" in df.columns else "year"
+        if year_col in df.columns:
             yearly = (
-                df.dropna(subset=["year"])
-                .query("1800 <= year <= 2025")
-                .groupby("year")
+                df.dropna(subset=[year_col])
+                .query(f"1800 <= {year_col} <= 2030")
+                .groupby(year_col)
                 .size()
                 .reset_index(name="count")
             )
+            yearly.rename(columns={year_col: "year"}, inplace=True)
             fig = px.line(
                 yearly, x="year", y="count",
                 title="Books Published per Year",

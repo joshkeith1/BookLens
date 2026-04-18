@@ -9,8 +9,17 @@ def load_data(path: str) -> pd.DataFrame:
     return preprocess(df)
 
 
+_COLUMN_ALIASES = {
+    "name": "title",
+    "author": "authors",
+    "user_rating": "average_rating",
+    "reviews": "ratings_count",
+}
+
+
 def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [c.strip().lower().replace("-", "_").replace(" ", "_") for c in df.columns]
+    df.rename(columns={k: v for k, v in _COLUMN_ALIASES.items() if k in df.columns}, inplace=True)
 
     if "isbn" in df.columns:
         df = df.drop_duplicates(subset="isbn")
