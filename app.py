@@ -13,12 +13,32 @@ st.set_page_config(
 )
 
 import pandas as pd
-from utils.data_loader import load_data
-from components import overview, profiling, visualizations, exploration, ai_insights
+from utils.data_loader import load_data, load_uploaded
+from components import home, overview, profiling, visualizations, exploration, ai_insights
 
 GOODREADS_PATH = Path(__file__).parent / "data" / "books.csv"
 PERSONAL_PATH = Path(__file__).parent / "data" / "my_books.csv"
 AMAZON_PATH = Path(__file__).parent / "data" / "AmazonTop50Bestsellers(2009-19).csv"
+BX_PATH = Path(__file__).parent / "data" / "BookRecommendations" / "BookRecomendations_Books.csv"
+
+DATASET_DESCRIPTIONS = {
+    "My Personal Library": (
+        "381 books read by Joshua Keith from 2016–2025. "
+        "Includes series tracking, format (physical/ebook/audiobook), re-reads, and exact finish dates where recorded."
+    ),
+    "Goodreads Dataset": (
+        "~11,000 books sourced from Goodreads. "
+        "Covers a wide range of genres with community ratings, review counts, page counts, and publication metadata."
+    ),
+    "Amazon Top 50 (2009-2019)": (
+        "550 entries representing the Amazon Top 50 bestselling books each year from 2009 to 2019. "
+        "Includes user ratings, review counts, and price — split between Fiction and Non Fiction."
+    ),
+    "Book-Crossing (271K books)": (
+        "271,000 books from the Book-Crossings dataset, paired with over 1 million community ratings. "
+        "Ratings are aggregated per book and scaled to 0–5. ~45% of books have no ratings."
+    ),
+}
 
 
 def build_filters(df: pd.DataFrame) -> pd.DataFrame:
@@ -89,7 +109,15 @@ def main():
         if GOODREADS_PATH.exists():
             available["Goodreads Dataset"] = str(GOODREADS_PATH)
         if AMAZON_PATH.exists():
-            available["Amazon Top 50 Bestsellers (2009–2019)"] = str(AMAZON_PATH)
+            available["Amazon Top 50 (2009-2019)"] = str(AMAZON_PATH)
+        if BX_PATH.exists():
+            available["Book-Crossing (271K books)"] = str(BX_PATH)
+
+        st.subheader("Upload your own")
+        uploaded_file = st.file_uploader("Upload a CSV", type="csv", label_visibility="collapsed")
+        if uploaded_file is not None:
+            available["Uploaded: " + uploaded_file.name] = uploaded_file
+        st.divider()
 
         if not available:
             st.error(
@@ -98,10 +126,15 @@ def main():
             st.stop()
 
         dataset_choice = st.selectbox("Dataset", list(available.keys()))
-        chosen_path = available[dataset_choice]
+        chosen = available[dataset_choice]
+        if dataset_choice in DATASET_DESCRIPTIONS:
+            st.caption(DATASET_DESCRIPTIONS[dataset_choice])
         st.divider()
 
-    df = load_data(chosen_path)
+    if dataset_choice.startswith("Uploaded:"):
+        df = load_uploaded(chosen)
+    else:
+        df = load_data(chosen)
     filtered_df = build_filters(df)
 
     with st.sidebar:
@@ -109,17 +142,19 @@ def main():
         st.markdown(f"**{len(filtered_df):,}** / {len(df):,} books")
         st.markdown("*BookLens — Interactive Data Exploration*")
 
-    tabs = st.tabs(["Overview", "Profiling", "Visualizations", "Explore", "AI Insights"])
+    tabs = st.tabs(["Home", "Overview", "Profiling", "Visualizations", "Explore", "AI Insights"])
 
     with tabs[0]:
-        overview.render(filtered_df)
+        home.render(available, dataset_choice, DATASET_DESCRIPTIONS)
     with tabs[1]:
-        profiling.render(filtered_df)
+        overview.render(filtered_df)
     with tabs[2]:
-        visualizations.render(filtered_df)
+        profiling.render(filtered_df)
     with tabs[3]:
-        exploration.render(filtered_df)
+        visualizations.render(filtered_df)
     with tabs[4]:
+        exploration.render(filtered_df)
+    with tabs[5]:
         ai_insights.render(filtered_df)
 
 

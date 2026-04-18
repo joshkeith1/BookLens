@@ -5,21 +5,69 @@ from pathlib import Path
 
 @st.cache_data
 def load_data(path: str) -> pd.DataFrame:
-    df = pd.read_csv(path, on_bad_lines="skip")
-    return preprocess(df)
+    df = pd.read_csv(path, on_bad_lines="skip", low_memory=False)
+    df = preprocess(df)
+    df = _maybe_join_bx_ratings(df, path)
+    df = _maybe_merge_amazon_genres(df, path)
+    return df
 
 
 _COLUMN_ALIASES = {
+    # Amazon bestsellers
     "name": "title",
     "author": "authors",
     "user_rating": "average_rating",
     "reviews": "ratings_count",
+    # Book-Crossings / BX dataset
+    "book_title": "title",
+    "book_author": "authors",
+    "year_of_publication": "year",
 }
+
+
+def _maybe_join_bx_ratings(df: pd.DataFrame, path: str) -> pd.DataFrame:
+    """If a Ratings.csv sibling exists, aggregate and merge ratings into df."""
+    ratings_path = Path(path).parent / "Ratings.csv"
+    if "isbn" not in df.columns or not ratings_path.exists():
+        return df
+
+    ratings = pd.read_csv(ratings_path, usecols=["ISBN", "Book-Rating"], low_memory=False)
+    ratings.columns = ["isbn", "book_rating"]
+    ratings = ratings[ratings["book_rating"] > 0]  # 0 = implicit (not rated)
+
+    agg = (
+        ratings.groupby("isbn")["book_rating"]
+        .agg(average_rating="mean", ratings_count="count")
+        .reset_index()
+    )
+    # BX ratings are 1–10; scale to 0–5 to match other datasets
+    agg["average_rating"] = (agg["average_rating"] / 2).round(2)
+
+    df = df.merge(agg, on="isbn", how="left")
+    return df
+
+
+def _maybe_merge_amazon_genres(df: pd.DataFrame, path: str) -> pd.DataFrame:
+    """Replaces coarse Fiction/Non Fiction genre with detailed labels from amazon_genres.csv."""
+    genres_path = Path(path).parent / "amazon_genres.csv"
+    if "price" not in df.columns or not genres_path.exists():
+        return df
+
+    genres = pd.read_csv(genres_path)
+    df = df.merge(genres[["title", "genre_detail"]], on="title", how="left")
+    df["genre"] = df["genre_detail"].fillna(df.get("genre", pd.NA))
+    df.drop(columns=["genre_detail"], inplace=True)
+    return df
 
 
 def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     df.columns = [c.strip().lower().replace("-", "_").replace(" ", "_") for c in df.columns]
     df.rename(columns={k: v for k, v in _COLUMN_ALIASES.items() if k in df.columns}, inplace=True)
+
+    # Drop image URL columns (BX dataset)
+    url_cols = [c for c in df.columns if "image" in c or "url" in c]
+    if url_cols:
+        df.drop(columns=url_cols, inplace=True)
 
     if "isbn" in df.columns:
         df = df.drop_duplicates(subset="isbn")
@@ -34,7 +82,7 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
         df["average_rating"] = pd.to_numeric(df["average_rating"], errors="coerce")
         df["average_rating"] = df["average_rating"].clip(0, 5)
 
-    for col in ["num_pages", "ratings_count", "text_reviews_count"]:
+    for col in ["num_pages", "ratings_count", "text_reviews_count", "year", "price"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -44,7 +92,15 @@ def preprocess(df: pd.DataFrame) -> pd.DataFrame:
     elif "year" not in df.columns:
         df["year"] = pd.NA
 
+    if "year" in df.columns:
+        df["year"] = df["year"].where(df["year"].between(1800, 2026), other=pd.NA)
+
     return df
+
+
+def load_uploaded(file) -> pd.DataFrame:
+    df = pd.read_csv(file, on_bad_lines="skip", low_memory=False)
+    return preprocess(df)
 
 
 def get_summary_stats(df: pd.DataFrame) -> dict:

@@ -2,18 +2,22 @@ import json
 import os
 import streamlit as st
 import pandas as pd
+from openai import OpenAI
 from utils.data_loader import get_summary_stats
+
+OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
+DEFAULT_MODEL = "anthropic/claude-sonnet-4-5"
 
 
 def render(df: pd.DataFrame):
     st.header("AI Insights")
     st.markdown(
-        "Click the button below to have Claude analyze the dataset and surface key insights in plain language."
+        "Click the button below to have an AI analyze the dataset and surface key insights in plain language."
     )
 
-    api_key = os.getenv("ANTHROPIC_API_KEY")
+    api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        st.warning("Set `ANTHROPIC_API_KEY` in your `.env` file to enable AI insights.")
+        st.warning("Set `OPENROUTER_API_KEY` in your `.env` file to enable AI insights.")
         return
 
     if st.button("Generate Insights", type="primary"):
@@ -34,33 +38,27 @@ def render(df: pd.DataFrame):
         )
 
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=api_key)
+            client = OpenAI(api_key=api_key, base_url=OPENROUTER_BASE_URL)
 
             with st.spinner("Analyzing dataset..."):
                 result_placeholder = st.empty()
                 full_text = ""
 
-                with client.messages.stream(
-                    model="claude-sonnet-4-6",
+                stream = client.chat.completions.create(
+                    model=DEFAULT_MODEL,
                     max_tokens=1024,
-                    system=system_prompt,
+                    stream=True,
                     messages=[
-                        {
-                            "role": "user",
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": user_message,
-                                    "cache_control": {"type": "ephemeral"},
-                                }
-                            ],
-                        }
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": user_message},
                     ],
-                ) as stream:
-                    for text in stream.text_stream:
-                        full_text += text
+                )
+
+                for chunk in stream:
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        full_text += delta
                         result_placeholder.markdown(full_text)
 
         except Exception as e:
-            st.error(f"Error calling Claude API: {e}")
+            st.error(f"Error calling OpenRouter API: {e}")
