@@ -2,6 +2,8 @@
 
 **BookLens** is an interactive Streamlit app for exploring book datasets. Pick one of the bundled datasets or upload your own CSV, then dig in with charts, filters, and AI-powered narrative summaries.
 
+Demo: https://youtu.be/abUJmBCQQGo
+
 ## Features
 
 | Tab | What it does |
