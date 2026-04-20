@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 
 
 def _has(df, *cols):
@@ -31,6 +32,7 @@ def render(df: pd.DataFrame):
         available["Rating vs Pages"] = _render_rating_vs_pages
     if _has(df, "genre") and _has_any(df, "year", "year_read"):
         available["Genre Over Time"] = _render_genre_over_time
+        available["Genre Heatmap"] = _render_genre_heatmap
     if _has(df, "price"):
         available["Price Analysis"] = _render_price
     if _has(df, "publisher"):
@@ -234,6 +236,64 @@ def _render_series(df, **kw):
         coloraxis_showscale=False,
     )
     st.plotly_chart(fig2, use_container_width=True)
+
+
+def _render_genre_heatmap(df, **kw):
+    year_col = kw["year_col"]
+    is_read = year_col == "year_read"
+    xlabel = "Year Read" if is_read else "Year Published"
+    title = "Genre Heatmap by Year Read" if is_read else "Genre Heatmap by Publication Year"
+
+    clean = df.dropna(subset=[year_col, "genre"]).query(f"1800 <= {year_col} <= 2030")
+
+    metric = st.radio(
+        "Color by",
+        ["Book Count", "Avg Rating"] if "average_rating" in df.columns else ["Book Count"],
+        horizontal=True,
+        key="genre_heatmap_metric",
+    )
+
+    top_n = st.slider("Top N genres", min_value=5, max_value=30, value=15, key="genre_heatmap_topn")
+    top_genres = clean["genre"].value_counts().head(top_n).index.tolist()
+    filtered = clean[clean["genre"].isin(top_genres)]
+
+    if metric == "Avg Rating":
+        pivot = (
+            filtered.groupby([year_col, "genre"])["average_rating"]
+            .mean()
+            .unstack(fill_value=None)
+        )
+        color_label = "Avg Rating"
+        colorscale = "RdYlGn"
+    else:
+        pivot = (
+            filtered.groupby([year_col, "genre"])
+            .size()
+            .unstack(fill_value=0)
+        )
+        color_label = "Book Count"
+        colorscale = "Blues"
+
+    pivot = pivot[top_genres]
+
+    fig = go.Figure(
+        go.Heatmap(
+            z=pivot.values.T,
+            x=pivot.index.tolist(),
+            y=pivot.columns.tolist(),
+            colorscale=colorscale,
+            colorbar={"title": color_label},
+            hoverongaps=False,
+            hovertemplate=f"{xlabel}: %{{x}}<br>Genre: %{{y}}<br>{color_label}: %{{z}}<extra></extra>",
+        )
+    )
+    fig.update_layout(
+        title=title,
+        xaxis_title=xlabel,
+        yaxis_title="Genre",
+        height=max(400, top_n * 28),
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
 
 def _render_format_over_time(df, **kw):

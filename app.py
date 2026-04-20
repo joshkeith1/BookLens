@@ -16,6 +16,49 @@ import pandas as pd
 from utils.data_loader import load_data, load_uploaded
 from components import home, overview, profiling, visualizations, exploration, ai_insights
 
+st.markdown("""
+<style>
+/* Sidebar */
+[data-testid="stSidebar"] { background-color: #1F1A14; border-right: 1px solid #3A3028; }
+
+/* Tabs */
+[data-testid="stTabs"] button { font-size: 0.9rem; letter-spacing: 0.03em; }
+[data-testid="stTabs"] button[aria-selected="true"] {
+    color: #E8A838;
+    border-bottom-color: #E8A838;
+    font-weight: 600;
+}
+
+/* Cards / containers */
+[data-testid="stVerticalBlock"] > div > div[data-testid="stHorizontalBlock"] { gap: 0.75rem; }
+
+/* Metric cards */
+[data-testid="stMetric"] {
+    background: #26211B;
+    border: 1px solid #3A3028;
+    border-radius: 10px;
+    padding: 0.8rem 1rem;
+}
+[data-testid="stMetricValue"] { color: #E8A838; }
+
+/* Buttons */
+[data-testid="stButton"] > button {
+    background: #E8A838;
+    color: #1A1612;
+    border: none;
+    font-weight: 600;
+    border-radius: 8px;
+}
+[data-testid="stButton"] > button:hover { background: #F0B84A; color: #1A1612; }
+
+/* Title */
+h1 { letter-spacing: -0.01em; }
+
+/* Divider */
+hr { border-color: #3A3028; }
+</style>
+""", unsafe_allow_html=True)
+
 GOODREADS_PATH = Path(__file__).parent / "data" / "books.csv"
 PERSONAL_PATH = Path(__file__).parent / "data" / "my_books.csv"
 AMAZON_PATH = Path(__file__).parent / "data" / "AmazonTop50Bestsellers(2009-19).csv"
